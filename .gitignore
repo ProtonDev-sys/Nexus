@@ -23,4 +23,5 @@ data/
 config/
 docs/
 logs/
-sounds/
+sounds/*
+!sounds/.gitkeep
