@@ -5,7 +5,7 @@ Nexus is a versatile Discord bot designed to enhance the interaction and enterta
 ## Features
 
 - **Voice Trolling**: Randomly joins a voice channel with members and plays a sound from a predefined list.
-- *(List other features here if applicable)*
+- **Music Commands**: Allows user to play music from youtube using a query/url.
 
 ## Installation
 
@@ -42,8 +42,12 @@ To install and run Nexus on your system, follow these steps:
 ## Usage
 
 After inviting Nexus to your Discord server, you can interact with it using various commands.
-
-- *(TO BE COMPLETED)*
+### Music Commands
+- /Play
+- /Pause
+- /Skip
+- /Seek
+- /Stop
 - *(Include commands and their descriptions here)*
 
 ## Contributing
