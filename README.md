@@ -7,7 +7,7 @@ Nexus is a versatile Discord bot designed to enhance the interaction and enterta
 
 - **Voice Trolling**: Randomly joins a voice channel with members and plays a sound from a predefined list.
 - *(List other features here if applicable)*
-
+```
 ## Installation
 
 To install and run Nexus on your system, follow these steps:
@@ -37,7 +37,7 @@ To install and run Nexus on your system, follow these steps:
 
 5. **Running the Bot**
    ```sh
-   python src/bot.py
+   start.bat
    ```
 
 ## Usage
