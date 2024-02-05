@@ -1,4 +1,3 @@
-```
 # Nexus Discord Bot
 
 Nexus is a versatile Discord bot designed to enhance the interaction and entertainment in your Discord servers. It features a variety of commands and functionalities, including the unique ability to join voice channels and play sounds.
@@ -7,7 +6,7 @@ Nexus is a versatile Discord bot designed to enhance the interaction and enterta
 
 - **Voice Trolling**: Randomly joins a voice channel with members and plays a sound from a predefined list.
 - *(List other features here if applicable)*
-```
+
 ## Installation
 
 To install and run Nexus on your system, follow these steps:
