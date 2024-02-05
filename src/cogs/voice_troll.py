@@ -22,15 +22,20 @@ class VoiceTrolling(commands.Cog):
 
     @tasks.loop(seconds=30) 
     async def voice_troll(self):
-        if random.randint(1,40) != 2:
+        if random.randint(1, 100) != 2:
             return
         for guild in self.bot.guilds:
-            # Filter out voice channels with no members
             non_empty_channels = [vc for vc in guild.voice_channels if len(vc.members) > 0]
 
             if non_empty_channels:
                 voice_channel = random.choice(non_empty_channels)
                 try:
+                    was_playing = False
+                    if guild.voice_client and guild.voice_client.is_playing():
+                        # Bot is already in a voice channel and playing
+                        was_playing = True
+                        guild.voice_client.pause()
+
                     vc = await voice_channel.connect()
                     sound_files = os.listdir('src/sounds')
                     sound_file = random.choice(sound_files)
@@ -40,11 +45,18 @@ class VoiceTrolling(commands.Cog):
                     while vc.is_playing():
                         await asyncio.sleep(1)
                     self.logger.info(f"Disconnecting from {voice_channel.name}")
-                    await vc.disconnect()
+                    
+                    if was_playing:
+                        # Resume playing if it was previously paused
+                        guild.voice_client.resume()
+                    else:
+                        await vc.disconnect()
+
                 except Exception as e:
                     self.logger.error(f"Error in voice trolling task {e}")
             else:
                 self.logger.info("No non-empty voice channels found.")
+
 
 async def setup(bot):
     await bot.add_cog(VoiceTrolling(bot))

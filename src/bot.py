@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 import os
 import asyncio
 import logging
-import os
 
 # Load environment variables
 load_dotenv()
