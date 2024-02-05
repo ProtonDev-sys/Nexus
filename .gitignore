@@ -1,0 +1,28 @@
+# Ignore environment variables file
+.env
+env/
+
+# Ignore Python cache directories
+__pycache__/
+**/__pycache__/
+
+# Ignore compiled Python files
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore OS generated files
+.DS_Store  # macOS
+Thumbs.db  # Windows
+
+# Ignore IDE-specific files and directories
+# (uncomment or add lines relevant to your IDE)
+# .vscode/
+# .idea/
+# *.sublime-workspace
+
+# Ignore other non-source directories and files as needed
+data/
+config/
+docs/
+logs/
