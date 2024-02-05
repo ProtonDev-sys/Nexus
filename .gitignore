@@ -15,11 +15,7 @@ __pycache__/
 .DS_Store  # macOS
 Thumbs.db  # Windows
 
-# Ignore IDE-specific files and directories
-# (uncomment or add lines relevant to your IDE)
-# .vscode/
-# .idea/
-# *.sublime-workspace
+.vscode/
 
 # Ignore other non-source directories and files as needed
 data/
