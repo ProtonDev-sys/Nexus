@@ -21,7 +21,6 @@ class MusicCog(commands.Cog):
         else:
             return deque(serialized_queue)  # If it's already a list, convert directly to deque
 
-
     async def set_song_queue(self, guild_id, queue):
         serialized_queue = json.dumps(list(queue))  # Convert deque to list and serialize to JSON
         self.data_manager.set_guild_setting(guild_id, 'song_queue', serialized_queue)
@@ -32,18 +31,15 @@ class MusicCog(commands.Cog):
     async def set_current_playing(self, guild_id, url):
         self.data_manager.set_guild_setting(guild_id, 'current_playing', url)
 
-    async def add_to_queue(self, guild_id, song_url):
-        # Fetch song details
-        song_info = await self.fetch_song_details(song_url)
-
+    async def add_to_queue(self, guild_id, song_info):
         # Retrieve the current queue for the guild
-        current_queue = self.data_manager.get_guild_setting(guild_id, 'song_queue', deque())
+        song_queue = await self.get_song_queue(guild_id)
 
-        # Append the new song to the queue
-        current_queue.append(song_info)
+        # Append the new song details to the queue
+        song_queue.append(song_info)
 
         # Save the updated queue
-        self.data_manager.set_guild_setting(guild_id, 'song_queue', current_queue)
+        await self.set_song_queue(guild_id, song_queue)
 
     async def fetch_song_details(self, song_url):
         ydl_opts = {
@@ -58,13 +54,17 @@ class MusicCog(commands.Cog):
                 info = ydl.extract_info(song_url, download=False)
                 song_info = {
                     'title': info.get('title', 'Unknown Title'),
-                    'url': info.get('webpage_url', song_url),
-                    'duration': info.get('duration', 0)
+                    'url': info.get('webpage_url', '#'),
+                    'duration': info.get('duration', 0),
+                    'channel': info.get('channel', 'Unknown Channel'),
+                    'channel_url': info.get('channel_url', 'Unknown Channel'),
+                    'thumbnail': info.get('thumbnail', '')
                 }
                 return song_info
             except Exception as e:
                 print(f"Error fetching song details: {e}")
                 return None
+
 
     @app_commands.command(name='join', description='Tells the bot to join the voice channel')
     async def join(self, interaction: discord.Interaction):
@@ -79,25 +79,19 @@ class MusicCog(commands.Cog):
     @app_commands.command(name='play', description='Plays a song from a URL or search query')
     @app_commands.describe(query='The URL or search query of the song to play')
     async def play(self, interaction: discord.Interaction, query: str):
+        await interaction.response.defer()
         guild_id = interaction.guild_id
         ctx = await commands.Context.from_interaction(interaction)
-        
+
         # Check if query is a URL or search term
         if not query.startswith("http://") and not query.startswith("https://"):
-            await interaction.response.send_message(f"Processing your request for: {query}")
             query = f"ytsearch:{query}"
-        else:
-            await interaction.response.send_message(f"Processing your request for: {query}")
 
-        song_queue = await self.get_song_queue(guild_id)
-        if not song_queue:
-            await self.set_song_queue(guild_id, deque())
-
-        # Fetch song details and send embed
-        song_url = await self.search_youtube(query)
-        if song_url:
-            await self.add_to_queue(guild_id, song_url)
-            await self.send_song_embed(ctx, song_url)
+        # Fetch song details
+        song_info = await self.search_youtube(query)
+        if song_info:
+            await self.add_to_queue(guild_id, song_info)
+            await self.send_song_embed(ctx, song_info)
 
             vc = ctx.voice_client
             if not vc:
@@ -105,58 +99,61 @@ class MusicCog(commands.Cog):
                 await channel.connect()
             vc = ctx.voice_client
             if not vc.is_playing():
-                await self.start_playing(ctx)
+                await self.start_playing(ctx, song_info)
         else:
-            await interaction.response.send_message("Could not find any song matching the query.")
+            await interaction.response.send_message("Error fetching song details.")
+
+
 
     async def search_youtube(self, query):
-        with yt_dlp.YoutubeDL({'quiet': True, 'format': 'bestaudio', 'noplaylist':'True'}) as ydl:
+        ydl_opts = {'quiet': True, 'format': 'bestaudio', 'noplaylist': 'True', 'default_search': 'auto'}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             try:
                 info = ydl.extract_info(query, download=False)
                 if 'entries' in info:
                     # Take the first search result
-                    return info['entries'][0]['webpage_url']
-                else:
-                    return info['webpage_url']
+                    info = info['entries'][0]
+                return {
+                    'title': info.get('title', 'Unknown Title'),
+                    'url': info.get('webpage_url', '#'),
+                    'duration': info.get('duration', 0),
+                    'channel': info.get('channel', 'Unknown Channel'),
+                    'channel_url': info.get('channel_url', 'Unknown Channel'),
+                    'thumbnail': info.get('thumbnail', '')
+                }
             except Exception as e:
                 self.logger.error(f"Error searching YouTube: {e}")
                 return None
 
-        
-
-    async def send_song_embed(self, ctx, url):
+    async def send_song_embed(self, ctx, song_info):
         guild_id = ctx.guild.id
-        with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
-            info = ydl.extract_info(url, download=False)
-            title = info.get('title')
-            duration = str(datetime.timedelta(seconds=info.get('duration')))
-            uploader = info.get('uploader')
-            uploader_url = info.get('channel_url')  # URL of the uploader's channel
-            thumbnail_url = info.get('thumbnail')
-            song_queue = await self.get_song_queue(guild_id)
-            position_in_queue = len(song_queue)
 
-        # Format the title and uploader as clickable hyperlinks
-        title_link = f"[{title}]({url})"
-        uploader_link = f"[{uploader}]({uploader_url})" if uploader_url else uploader
+        title = song_info.get('title', 'Unknown Title')
+        duration = str(datetime.timedelta(seconds=song_info.get('duration', 0)))
+        channel = song_info.get('channel', 'Unknown Channel')
+        channel_url = song_info.get('channel_url', '')
+        thumbnail_url = song_info.get('thumbnail', '')
+        song_queue = await self.get_song_queue(guild_id)
+        position_in_queue = len(song_queue)
+
+        # Create clickable links
+        title_link = f"[{title}]({song_info['url']})"
+        channel_link = f"[{channel}]({channel_url})" if channel_url else channel
 
         embed = discord.Embed(title="Added to the Queue", description=title_link, color=discord.Color.blue())
-        embed.add_field(name="Channel", value=uploader_link, inline=False)
+        embed.add_field(name="Channel", value=channel_link, inline=False)
         embed.add_field(name="Duration", value=duration, inline=False)
         embed.add_field(name="Position in Queue", value=position_in_queue, inline=False)
         embed.set_thumbnail(url=thumbnail_url)
         await ctx.send(embed=embed)
 
 
-    async def start_playing(self, ctx):
+    async def start_playing(self, ctx, song_info):
         guild_id = ctx.guild.id
-        song_queue = await self.get_song_queue(guild_id)
         vc = ctx.voice_client
 
-        if song_queue:
-            data = song_queue.pop()
-            url = data['url']
-            await self.set_song_queue(guild_id, song_queue)
+        if vc and song_info:
+            url = song_info['url']
             await self.set_current_playing(guild_id, url)
             YDL_OPTIONS = {'format': 'bestaudio', 'noplaylist':'True'}
             FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
@@ -170,7 +167,8 @@ class MusicCog(commands.Cog):
             # Optionally, send a message that the bot is starting to play the song
             await ctx.send(f"Now playing: {info['title']}")
         else:
-            await ctx.send("The queue is empty.")
+            await ctx.send("The queue is empty or there was an error fetching the song.")
+
 
     async def play_next_song(self, ctx):
         guild_id = ctx.guild.id
@@ -269,7 +267,7 @@ class MusicCog(commands.Cog):
 
     def create_queue_embed(self, queue, page=1):
         embed = discord.Embed(title="Music Queue", color=discord.Color.blue())
-        items_per_page = 10
+        items_per_page = 8
         start = (page - 1) * items_per_page
         end = start + items_per_page
 
@@ -282,7 +280,7 @@ class MusicCog(commands.Cog):
 
             # Truncate title if it's too long
             if len(title) > 40:
-                title = title[:37] + '...'
+                title = title[:37]
 
             # Format the string to have the clickable title and duration
             song_display = f"[{title}]({url}) duration: `{duration}`"
@@ -299,7 +297,7 @@ class QueueView(discord.ui.View):
         self.queue = queue
         self.embed_creator = embed_creator
         self.current_page = 1
-
+        self.max_page = ((len(queue) - 1) // 8) + 1
         # Adding buttons
         self.add_item(PreviousButton())
         self.add_item(NextButton())
@@ -323,7 +321,7 @@ class NextButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         view: QueueView = self.view
-        view.current_page += 1
+        view.current_page = min(1, view.max_page+ 1)
         await view.update_embed(interaction)
 
 async def setup(bot):
