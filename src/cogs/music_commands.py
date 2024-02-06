@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
+from discord.ui import Button, View
 import yt_dlp 
 import datetime
 from collections import deque
@@ -30,6 +31,40 @@ class MusicCog(commands.Cog):
 
     async def set_current_playing(self, guild_id, url):
         self.data_manager.set_guild_setting(guild_id, 'current_playing', url)
+
+    async def add_to_queue(self, guild_id, song_url):
+        # Fetch song details
+        song_info = await self.fetch_song_details(song_url)
+
+        # Retrieve the current queue for the guild
+        current_queue = self.data_manager.get_guild_setting(guild_id, 'song_queue', deque())
+
+        # Append the new song to the queue
+        current_queue.append(song_info)
+
+        # Save the updated queue
+        self.data_manager.set_guild_setting(guild_id, 'song_queue', current_queue)
+
+    async def fetch_song_details(self, song_url):
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'quiet': True,
+            'no_warnings': True,
+            'default_search': 'auto'
+        }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            try:
+                info = ydl.extract_info(song_url, download=False)
+                song_info = {
+                    'title': info.get('title', 'Unknown Title'),
+                    'url': info.get('webpage_url', song_url),
+                    'duration': info.get('duration', 0)
+                }
+                return song_info
+            except Exception as e:
+                print(f"Error fetching song details: {e}")
+                return None
 
     @app_commands.command(name='join', description='Tells the bot to join the voice channel')
     async def join(self, interaction: discord.Interaction):
@@ -61,9 +96,7 @@ class MusicCog(commands.Cog):
         # Fetch song details and send embed
         song_url = await self.search_youtube(query)
         if song_url:
-            song_queue = await self.get_song_queue(guild_id)
-            song_queue.append(song_url)
-            await self.set_song_queue(guild_id, song_queue)
+            await self.add_to_queue(guild_id, song_url)
             await self.send_song_embed(ctx, song_url)
 
             vc = ctx.voice_client
@@ -121,7 +154,8 @@ class MusicCog(commands.Cog):
         vc = ctx.voice_client
 
         if song_queue:
-            url = song_queue.pop()
+            data = song_queue.pop()
+            url = data['url']
             await self.set_song_queue(guild_id, song_queue)
             await self.set_current_playing(guild_id, url)
             YDL_OPTIONS = {'format': 'bestaudio', 'noplaylist':'True'}
@@ -219,7 +253,78 @@ class MusicCog(commands.Cog):
             await interaction.response.send_message("No song is currently playing.")
     
 
+    @app_commands.command(name='queue', description='Displays the current music queue.')
+    async def queue(self, interaction: discord.Interaction):
+        guild_id = interaction.guild_id
+        song_queue = await self.get_song_queue(guild_id)
 
+        if not song_queue:
+            await interaction.response.send_message("The queue is currently empty.")
+            return
+
+        # Preparing the queue embed
+        embed = self.create_queue_embed(song_queue, page=1)
+        view = QueueView(song_queue, self.create_queue_embed)
+        await interaction.response.send_message(embed=embed, view=view)
+
+    def create_queue_embed(self, queue, page=1):
+        embed = discord.Embed(title="Music Queue", color=discord.Color.blue())
+        items_per_page = 10
+        start = (page - 1) * items_per_page
+        end = start + items_per_page
+
+        queue_list = list(queue)[start:end]
+
+        for i, song_info in enumerate(queue_list, start=start + 1):
+            title = song_info.get('title', 'Unknown Title')
+            url = song_info.get('url', '#')
+            duration = str(datetime.timedelta(seconds=song_info.get('duration', 0)))
+
+            # Truncate title if it's too long
+            if len(title) > 40:
+                title = title[:37] + '...'
+
+            # Format the string to have the clickable title and duration
+            song_display = f"[{title}]({url}) duration: `{duration}`"
+
+            embed.add_field(name=f"", value=song_display, inline=False)
+
+        total_pages = ((len(queue) - 1) // items_per_page) + 1
+        embed.set_footer(text=f"Page {page} of {total_pages}")
+        return embed
+
+class QueueView(discord.ui.View):
+    def __init__(self, queue, embed_creator):
+        super().__init__()
+        self.queue = queue
+        self.embed_creator = embed_creator
+        self.current_page = 1
+
+        # Adding buttons
+        self.add_item(PreviousButton())
+        self.add_item(NextButton())
+
+    async def update_embed(self, interaction: discord.Interaction):
+        embed = self.embed_creator(self.queue, self.current_page)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+class PreviousButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Previous", style=discord.ButtonStyle.grey)
+
+    async def callback(self, interaction: discord.Interaction):
+        view: QueueView = self.view
+        view.current_page = max(1, view.current_page - 1)
+        await view.update_embed(interaction)
+
+class NextButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="Next", style=discord.ButtonStyle.grey)
+
+    async def callback(self, interaction: discord.Interaction):
+        view: QueueView = self.view
+        view.current_page += 1
+        await view.update_embed(interaction)
 
 async def setup(bot):
     cog = MusicCog(bot)
@@ -232,3 +337,4 @@ async def setup(bot):
     bot.tree.add_command(cog.skip, guild=guild)
     bot.tree.add_command(cog.stop, guild=guild)
     bot.tree.add_command(cog.join, guild=guild)
+    bot.tree.add_command(cog.queue, guild=guild)
