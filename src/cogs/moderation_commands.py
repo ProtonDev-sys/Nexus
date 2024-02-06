@@ -29,15 +29,25 @@ class ModerationCog(commands.Cog):
         for guild in self.bot.guilds:
             temp_mutes = self.data_manager.get_guild_setting(guild.id, 'temp_mutes', '{}')
             temp_mutes_dict = temp_mutes
+
+            # Accumulate member IDs to be unmuted
+            members_to_unmute = []
             for member_id, unmute_time_str in temp_mutes_dict.items():
                 unmute_time = datetime.datetime.fromisoformat(unmute_time_str)
                 if current_time >= unmute_time:
-                    member = guild.get_member(int(member_id))
-                    if member:
-                        muted_role = discord.utils.get(guild.roles, name='Muted')
-                        await member.remove_roles(muted_role, reason="Temporary mute duration ended")
-                        del temp_mutes_dict[member_id]
+                    members_to_unmute.append(member_id)
+
+            # Process unmutes
+            for member_id in members_to_unmute:
+                member = guild.get_member(int(member_id))
+                if member:
+                    muted_role = discord.utils.get(guild.roles, name='Muted')
+                    await member.remove_roles(muted_role, reason="Temporary mute duration ended")
+                    del temp_mutes_dict[member_id]
+
+            # Save updated mutes list
             self.data_manager.set_guild_setting(guild.id, 'temp_mutes', temp_mutes_dict)
+
 
 
     @commands.Cog.listener()

@@ -24,6 +24,8 @@ class VoiceTrolling(commands.Cog):
     async def voice_troll(self):
         if random.randint(1, 100) != 2:
             return
+        if 1 == 1:
+            return
         
         for guild in self.bot.guilds:
             non_empty_channels = [vc for vc in guild.voice_channels if len(vc.members) > 0]
