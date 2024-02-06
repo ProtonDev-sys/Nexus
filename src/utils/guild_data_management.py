@@ -31,7 +31,7 @@ class GuildDataManager:
 
     def set_guild_setting(self, guild_id, setting, value):
         """Set a specific setting for a guild."""
-        if isinstance(value, list):
+        if isinstance(value, list) or isinstance(value, dict):
             value = json.dumps(value)  # Serialize list to JSON string
             
         if not self.column_exists('guild_settings', setting):
@@ -57,7 +57,7 @@ class GuildDataManager:
 
 
     def get_guild_setting(self, guild_id, setting, default=None):
-        """Get a specific setting for a guild."""
+        
         if not self.column_exists('guild_settings', setting):
             self.add_column('guild_settings', setting)
             return default
@@ -72,6 +72,7 @@ class GuildDataManager:
             except json.JSONDecodeError:
                 return result[0]
         return default
+
 
     def close(self):
         """Close the database connection."""
