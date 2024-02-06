@@ -5,12 +5,31 @@ import yt_dlp
 import datetime
 from collections import deque
 import asyncio
+from utils.guild_data_management import GuildDataManager
+import json
 
 class MusicCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.song_queue = {}
-        self.current_playing_url = {}
+        self.data_manager = GuildDataManager()
+
+    async def get_song_queue(self, guild_id):
+        serialized_queue = self.data_manager.get_guild_setting(guild_id, 'song_queue', "[]")
+        if isinstance(serialized_queue, str):
+            return deque(json.loads(serialized_queue))  # Deserialize JSON and convert back to deque
+        else:
+            return deque(serialized_queue)  # If it's already a list, convert directly to deque
+
+
+    async def set_song_queue(self, guild_id, queue):
+        serialized_queue = json.dumps(list(queue))  # Convert deque to list and serialize to JSON
+        self.data_manager.set_guild_setting(guild_id, 'song_queue', serialized_queue)
+
+    async def get_current_playing(self, guild_id):
+        return self.data_manager.get_guild_setting(guild_id, 'current_playing', None)
+
+    async def set_current_playing(self, guild_id, url):
+        self.data_manager.set_guild_setting(guild_id, 'current_playing', url)
 
     @app_commands.command(name='join', description='Tells the bot to join the voice channel')
     async def join(self, interaction: discord.Interaction):
@@ -25,21 +44,26 @@ class MusicCog(commands.Cog):
     @app_commands.command(name='play', description='Plays a song from a URL or search query')
     @app_commands.describe(query='The URL or search query of the song to play')
     async def play(self, interaction: discord.Interaction, query: str):
+        guild_id = interaction.guild_id
         ctx = await commands.Context.from_interaction(interaction)
-
+        
         # Check if query is a URL or search term
         if not query.startswith("http://") and not query.startswith("https://"):
             await interaction.response.send_message(f"Processing your request for: {query}")
             query = f"ytsearch:{query}"
         else:
             await interaction.response.send_message(f"Processing your request for: {query}")
-        if ctx.guild.id not in self.song_queue:
-            self.song_queue[ctx.guild.id] = deque()
+
+        song_queue = await self.get_song_queue(guild_id)
+        if not song_queue:
+            await self.set_song_queue(guild_id, deque())
 
         # Fetch song details and send embed
         song_url = await self.search_youtube(query)
         if song_url:
-            self.song_queue[ctx.guild.id].append(song_url)
+            song_queue = await self.get_song_queue(guild_id)
+            song_queue.append(song_url)
+            await self.set_song_queue(guild_id, song_queue)
             await self.send_song_embed(ctx, song_url)
 
             vc = ctx.voice_client
@@ -68,30 +92,38 @@ class MusicCog(commands.Cog):
         
 
     async def send_song_embed(self, ctx, url):
+        guild_id = ctx.guild.id
         with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
             info = ydl.extract_info(url, download=False)
             title = info.get('title')
             duration = str(datetime.timedelta(seconds=info.get('duration')))
             uploader = info.get('uploader')
+            uploader_url = info.get('channel_url')  # URL of the uploader's channel
             thumbnail_url = info.get('thumbnail')
-            position_in_queue = len(self.song_queue[ctx.guild.id])
+            song_queue = await self.get_song_queue(guild_id)
+            position_in_queue = len(song_queue)
 
-        embed = discord.Embed(title="Added to the Queue", description=title, color=discord.Color.blue())
-        embed.add_field(name="Channel", value=uploader)
-        embed.add_field(name="Duration", value=duration)
-        embed.add_field(name="Position in Queue", value=position_in_queue)
+        # Format the title and uploader as clickable hyperlinks
+        title_link = f"[{title}]({url})"
+        uploader_link = f"[{uploader}]({uploader_url})" if uploader_url else uploader
+
+        embed = discord.Embed(title="Added to the Queue", description=title_link, color=discord.Color.blue())
+        embed.add_field(name="Channel", value=uploader_link, inline=False)
+        embed.add_field(name="Duration", value=duration, inline=False)
+        embed.add_field(name="Position in Queue", value=position_in_queue, inline=False)
         embed.set_thumbnail(url=thumbnail_url)
         await ctx.send(embed=embed)
 
 
     async def start_playing(self, ctx):
         guild_id = ctx.guild.id
+        song_queue = await self.get_song_queue(guild_id)
         vc = ctx.voice_client
 
-        # Check if there are songs in the queue
-        if self.song_queue[guild_id]:
-            url = self.song_queue[guild_id].popleft()  # Get the first song in the queue
-            self.current_playing_url[guild_id] = url
+        if song_queue:
+            url = song_queue.pop()
+            await self.set_song_queue(guild_id, song_queue)
+            await self.set_current_playing(guild_id, url)
             YDL_OPTIONS = {'format': 'bestaudio', 'noplaylist':'True'}
             FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
 
@@ -109,9 +141,10 @@ class MusicCog(commands.Cog):
     async def play_next_song(self, ctx):
         guild_id = ctx.guild.id
         vc = ctx.voice_client
-
+        await self.set_current_playing(guild_id, " ")
         # Play the next song in the queue, if available
-        if self.song_queue[guild_id]:
+        song_queue = await self.get_song_queue(guild_id)
+        if song_queue:
             await self.start_playing(ctx)
     
     def pointer_next_song(self, ctx):
@@ -172,7 +205,7 @@ class MusicCog(commands.Cog):
         vc = ctx.voice_client
         if vc:
             vc.disconnect()
-            self.song_queue[ctx.guild.id] = []
+            self.set_song_queue(ctx.guild.id, deque())
 
     @app_commands.command(name='skip', description='Skips the currently playing song')
     async def skip(self, interaction: discord.Interaction):
