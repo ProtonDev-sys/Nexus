@@ -54,7 +54,7 @@ class XPCog(commands.Cog):
 
     def xp_for_next_level(self, current_level):
         # Exponential growth formula for level progression
-        a, b, c = 0.49109999999995696, 2.3910999999990885, 832.2000000001202
+        a, b, c = 2.26429179576826, 2.0502665558951225, 321.05028974358945
         return int(a * (current_level ** b) + c)
 
     @app_commands.command(name='setlevelupchannel', description='Set the channel for level-up announcements.')
