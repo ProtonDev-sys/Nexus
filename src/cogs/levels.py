@@ -53,9 +53,9 @@ class XPCog(commands.Cog):
         self.data_manager.set_guild_setting(guild_id, 'xp_data', guild_xp_data)
 
     def xp_for_next_level(self, current_level):
-        #return 9999999999999
         # Exponential growth formula for level progression
-        return 5 * (current_level ** 2) + 50
+        a, b, c = 0.49109999999995696, 2.3910999999990885, 832.2000000001202
+        return int(a * (current_level ** b) + c)
 
     @app_commands.command(name='setlevelupchannel', description='Set the channel for level-up announcements.')
     @app_commands.describe(channel='The channel where level-up messages will be sent')
