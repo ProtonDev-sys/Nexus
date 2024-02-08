@@ -70,67 +70,43 @@ class XPCog(commands.Cog):
         user_data = guild_xp_data.get(user_id, {'xp': 0, 'level': 0})
         xp = user_data.get('xp', 0)
         level = user_data.get('level', 0)
-        rank = 0
         next_level_xp = self.xp_for_next_level(level)
         font_path = os.path.join(os.getcwd(), "src", "fonts", "GROBOLD.ttf")
-        font_size = 12
+        font_size = 36
         font = ImageFont.truetype(font_path, font_size)
-
-
-
-        # Load the background image (customizable)
+        border_color = (255,255,255)
+        # Load and resize background image
         background = Image.open('src\\background_images\\background.jpg').convert("RGBA")
-        img = Image.new('RGBA', background.size)
-        img.paste(background, (0, 0))
+        img = Image.new('RGBA', (1200, 600))
+        img.paste(background.resize((1200, 600)), (0, 0))
+
         draw = ImageDraw.Draw(img)
 
-        # Define XP bar dimensions and position
-        bar_width = 350  # Total width of the XP bar
-        bar_height = 20  # Height of the XP bar
-        bar_x = 25  # X position of the XP bar
-        bar_y = 175  # Y position of the XP bar
+        # Avatar setup
+        avatar_size = 240
+        avatar_x, avatar_y = 50, 50
+        border_size = 15
 
-        # Calculate the XP bar length proportionally to the XP
+        # XP bar setup
+        bar_width, bar_height = 1050, 60
+        bar_x, bar_y = 75, 400
         xp_bar_length = int((xp / next_level_xp) * bar_width)
 
-        # Draw the grey background XP bar
-        draw.rounded_rectangle([(bar_x, bar_y), (bar_x + bar_width, bar_y + bar_height)], 
-                            radius=10, fill=(128, 128, 128))
+        # Draw XP bar
+        draw.rounded_rectangle([(bar_x, bar_y), (bar_x + bar_width, bar_y + bar_height)], radius=10, fill=(128, 128, 128))
+        draw.rounded_rectangle([(bar_x, bar_y), (bar_x + xp_bar_length, bar_y + bar_height)], radius=10, fill=(0, 255, 0))
 
-        # Draw the green XP progress bar on top of the background bar
-        draw.rounded_rectangle([(bar_x, bar_y), (bar_x + xp_bar_length, bar_y + bar_height)], 
-                            radius=10, fill=(0, 255, 0))
-        
-        # Draw the XP text above the XP bar
+        # Draw XP text
         xp_text = f"{xp} / {next_level_xp} XP"
-        xp_text_x = bar_width - 35 # Position the XP text at the end of the bar
-        xp_text_y = bar_y - 15  # Position the XP text above the bar
-        draw.text((xp_text_x, xp_text_y), xp_text, font=font, fill=(244, 244, 244))
+        draw.text((bar_x, bar_y - 40), xp_text, font=font, fill=(255, 255, 255))
 
+        # Draw level text
         level_text = f"Level {level}"
-        level_text_x = bar_x  # Position the XP text at the end of the bar
-        level_text_y = bar_y - 15  # Position the XP text above the bar
-        draw.text((level_text_x, level_text_y), level_text, font=font, fill=(244, 244, 244))
+        draw.text((bar_x + bar_width - 150, bar_y - 40), level_text, font=font, fill=(255, 255, 255))
 
-
-        #draw.text((0,0), "Powered by Nexus", font=ImageFont.truetype(font_path, 6), fill=(0,0,0))
-
-
-        # Draw the border around the profile picture
-        border_color = (255, 255, 255)  # White border
-        border_size = 4  # Border thickness
-        avatar_x = 50  # X position of the avatar
-        avatar_y = 50  # Y position of the avatar
-        avatar_size = 80  # Avatar size
-        draw.rounded_rectangle([(avatar_x - border_size, avatar_y - border_size),
-                                (avatar_x + avatar_size + border_size, avatar_y + avatar_size + border_size)],
-                                radius=avatar_size + border_size, outline=border_color, width=border_size)
-
-        # Draw the username at the bottom right of the profile picture
+        # Draw username
         username = interaction.user.display_name
-        username_x = avatar_x + avatar_size + 10  # Position the username to the right of the avatar
-        username_y = avatar_y + avatar_size - 20  # Position the username at the bottom of the avatar
-        draw.text((username_x, username_y), username, font=font, fill=(255, 255, 255))
+        draw.text((avatar_x + avatar_size + 30, avatar_y + avatar_size - 40), username, font=font, fill=(255, 255, 255))
 
         # Add user profile picture
         avatar_url = interaction.user.display_avatar.url
@@ -139,44 +115,39 @@ class XPCog(commands.Cog):
                 if response.status == 200:
                     avatar_data = await response.read()
                     avatar = Image.open(io.BytesIO(avatar_data))
-                    avatar_size = 80  # Size of the avatar
+                    avatar_size = 240  # Size of the avatar
                     avatar = avatar.resize((avatar_size, avatar_size)).convert("RGBA")
 
                     # Create a circular mask for the avatar
                     mask = Image.new('L', (avatar_size, avatar_size), 0)
                     mask_draw = ImageDraw.Draw(mask)
                     mask_draw.ellipse((0, 0, avatar_size, avatar_size), fill=255)
-                    
-                    # Apply the mask to the avatar to make it circular
                     avatar.putalpha(mask)
-                    
-                    # Create the border around the circular avatar
-                    border_size = 5  # Thickness of the border
-                    border = Image.new('RGBA', (avatar_size + border_size * 2, avatar_size + border_size * 2), border_color)
-                    border_draw = ImageDraw.Draw(border)
-                    border_draw.ellipse((border_size, border_size, avatar_size + border_size, avatar_size + border_size), fill=border_color)
-                    
-                    # Mask the border to make it circular
-                    border_mask = Image.new('L', (avatar_size + border_size * 2, avatar_size + border_size * 2), 0)
-                    border_draw = ImageDraw.Draw(border_mask)
-                    border_draw.ellipse((border_size, border_size, avatar_size + border_size, avatar_size + border_size), fill=255)
-                    border.putalpha(border_mask)
-                    
-                    # Position of the border (considering the border size)
-                    border_position = (avatar_x - border_size, avatar_y - border_size)
-                    img.paste(border, border_position, border)
 
-                    # Position of the avatar
+                    # Define the border size and color
+                    border_size = 15  # Thickness of the border
+                    border_color = (255, 255, 255)  # White border
+
+                    # Create a larger circle for the border
+                    border_circle = Image.new('RGBA', (avatar_size + border_size * 2, avatar_size + border_size * 2), (0, 0, 0, 0))
+                    border_circle_draw = ImageDraw.Draw(border_circle)
+                    border_circle_draw.ellipse((0, 0, avatar_size + border_size * 2, avatar_size + border_size * 2), fill=border_color)
+
+                    # Position the border circle behind the avatar
+                    border_position = (avatar_x - border_size, avatar_y - border_size)
+                    img.paste(border_circle, border_position, border_circle)
+
+                    # Position the avatar on top of the border
                     avatar_position = (avatar_x, avatar_y)
                     img.paste(avatar, avatar_position, avatar)
 
+        # Resize image for display
+        img = img.resize((400, 200), Image.Resampling.LANCZOS)
 
-        # Save to a BytesIO buffer
+        # Save to buffer and send
         final_buffer = io.BytesIO()
         img.save(final_buffer, 'PNG')
         final_buffer.seek(0)
-
-        # Send image
         file = discord.File(final_buffer, filename='rank.png')
         await interaction.response.send_message(file=file)
 
