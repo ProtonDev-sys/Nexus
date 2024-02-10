@@ -106,6 +106,7 @@ class ModerationCog(commands.Cog):
 
     @app_commands.command(name='mute', description='Mute a member in the server.')
     @app_commands.describe(member='Member to mute', duration='Duration of the mute in minutes', reason='Reason for muting')
+    @app_commands.checks.has_permissions(manage_roles=True)
     async def mute(self, interaction: discord.Interaction, member: discord.Member, duration: int, reason: str = "No reason provided"):
         muted_role = discord.utils.get(interaction.guild.roles, name='Muted')
         if not muted_role:
@@ -127,6 +128,7 @@ class ModerationCog(commands.Cog):
 
     @app_commands.command(name='unmute', description='Unmute a member in the server.')
     @app_commands.describe(member='Member to unmute', reason='Reason for unmuting')
+    @app_commands.checks.has_permissions(manage_roles=True)
     async def unmute(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason provided"):
         # Remove the mute role from the member
         muted_role = discord.utils.get(interaction.guild.roles, name='Muted')
