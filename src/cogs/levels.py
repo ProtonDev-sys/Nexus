@@ -77,19 +77,19 @@ class XPCog(commands.Cog):
         border_color = (255,255,255)
         # Load and resize background image
         background = Image.open('src\\background_images\\background.jpg').convert("RGBA")
-        img = Image.new('RGBA', (1200, 600))
-        img.paste(background.resize((1200, 600)), (0, 0))
+        img = Image.new('RGBA', (1200, 300))
+        img.paste(background.resize((1200, 300)), (0, 0))
 
         draw = ImageDraw.Draw(img)
 
         # Avatar setup
-        avatar_size = 240
-        avatar_x, avatar_y = 50, 50
-        border_size = 15
+        avatar_size = 180
+        avatar_x, avatar_y = 50, 75
+        border_size = 8
 
         # XP bar setup
-        bar_width, bar_height = 1050, 60
-        bar_x, bar_y = 75, 400
+        bar_width, bar_height = 810, 20
+        bar_x, bar_y = 315, 200
         xp_bar_length = int((xp / next_level_xp) * bar_width)
 
         # Draw XP bar
@@ -106,7 +106,7 @@ class XPCog(commands.Cog):
 
         # Draw username
         username = interaction.user.display_name
-        draw.text((avatar_x + avatar_size + 30, avatar_y + avatar_size - 40), username, font=font, fill=(255, 255, 255))
+        draw.text((avatar_x + (avatar_size/8), avatar_y - 60), username, font=font, fill=(255, 255, 255))
 
         # Add user profile picture
         avatar_url = interaction.user.display_avatar.url
@@ -115,7 +115,6 @@ class XPCog(commands.Cog):
                 if response.status == 200:
                     avatar_data = await response.read()
                     avatar = Image.open(io.BytesIO(avatar_data))
-                    avatar_size = 240  # Size of the avatar
                     avatar = avatar.resize((avatar_size, avatar_size)).convert("RGBA")
 
                     # Create a circular mask for the avatar
@@ -125,7 +124,6 @@ class XPCog(commands.Cog):
                     avatar.putalpha(mask)
 
                     # Define the border size and color
-                    border_size = 15  # Thickness of the border
                     border_color = (255, 255, 255)  # White border
 
                     # Create a larger circle for the border
@@ -142,7 +140,7 @@ class XPCog(commands.Cog):
                     img.paste(avatar, avatar_position, avatar)
 
         # Resize image for display
-        img = img.resize((400, 200), Image.Resampling.LANCZOS)
+        img = img.resize((400, 100), Image.Resampling.LANCZOS)
 
         # Save to buffer and send
         final_buffer = io.BytesIO()

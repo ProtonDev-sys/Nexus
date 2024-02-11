@@ -99,7 +99,7 @@ class MusicCog(commands.Cog):
                 await channel.connect()
             vc = ctx.voice_client
             if not vc.is_playing():
-                await self.start_playing(ctx, song_info)
+                await self.start_playing(ctx)
         else:
             await interaction.response.send_message("Error fetching song details.")
 
@@ -147,14 +147,18 @@ class MusicCog(commands.Cog):
         embed.set_thumbnail(url=thumbnail_url)
         await ctx.send(embed=embed)
 
-
-    async def start_playing(self, ctx, song_info):
+    async def start_playing(self, ctx):
+        
         guild_id = ctx.guild.id
+        song_queue = await self.get_song_queue(guild_id)
         vc = ctx.voice_client
-
-        if vc and song_info:
+        self.data_manager.set_guild_setting(guild_id, 'vote_skips', {})
+        if song_queue:
+            song_info = song_queue.popleft()  # Remove the first song from the queue
+            await self.set_song_queue(guild_id, song_queue)  # Update the queue in the database
             url = song_info['url']
             await self.set_current_playing(guild_id, url)
+
             YDL_OPTIONS = {'format': 'bestaudio', 'noplaylist':'True'}
             FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
 
@@ -164,11 +168,9 @@ class MusicCog(commands.Cog):
                 source = await discord.FFmpegOpusAudio.from_probe(url2, **FFMPEG_OPTIONS)
                 vc.play(source, after=lambda e: self.pointer_next_song(ctx))
 
-            # Optionally, send a message that the bot is starting to play the song
             await ctx.send(f"Now playing: {info['title']}")
         else:
-            await ctx.send("The queue is empty or there was an error fetching the song.")
-
+            await ctx.send("The queue is empty.")
 
     async def play_next_song(self, ctx):
         guild_id = ctx.guild.id
@@ -239,17 +241,53 @@ class MusicCog(commands.Cog):
             vc.disconnect()
             self.set_song_queue(ctx.guild.id, deque())
 
-    @app_commands.command(name='skip', description='Skips the currently playing song')
+    @app_commands.command(name='skip', description='Vote to skip the current song.')
     async def skip(self, interaction: discord.Interaction):
         guild_id = interaction.guild_id
-        vc = interaction.guild.voice_client
+        vote_skips = self.data_manager.get_guild_setting(guild_id, 'vote_skips', {})
 
-        if vc and vc.is_playing():
-            vc.stop()  # This will trigger the after callback to play the next song
-            await interaction.response.send_message("Skipped the current song.")
-        else:
+        vc = interaction.guild.voice_client
+        if vc is None or not vc.is_playing():
             await interaction.response.send_message("No song is currently playing.")
-    
+            return
+
+        member_count = len([member for member in vc.channel.members if not member.bot])  # Count members, excluding bots
+        vote_skips[str(interaction.user.id)] = True
+
+        votes = len(vote_skips)
+        required_votes = member_count // 2 + 1  # More than half of the members need to vote
+
+        if votes >= required_votes:
+            vc.stop()  # Stop the current song
+            self.data_manager.set_guild_setting(guild_id, 'vote_skips', {})  # Reset the votes
+            await interaction.response.send_message("Vote passed. Skipping the song.")
+        else:
+            self.data_manager.set_guild_setting(guild_id, 'vote_skips', vote_skips)  # Save the updated vote_skips data
+            await interaction.response.send_message(f"Vote to skip added. {votes}/{required_votes} votes.")
+
+    async def is_dj_or_staff(self, interaction: discord.Interaction):
+        """Check if the user has the DJ role or required permission."""
+        has_permission = interaction.user.guild_permissions.manage_guild
+        dj_role = discord.utils.get(interaction.guild.roles, name="DJ")
+        has_dj_role = dj_role in interaction.user.roles if dj_role else False
+        
+        return has_permission or has_dj_role
+
+    @app_commands.command(name='forceskip', description='Force skip the current song.')
+    async def forceskip(self, interaction: discord.Interaction):
+        if not await self.is_dj_or_staff(interaction):
+            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+            return
+        vc = interaction.guild.voice_client
+        if vc is None or not vc.is_playing():
+            await interaction.response.send_message("No song is currently playing.")
+            return
+
+        vc.stop()
+        if interaction.guild_id in self.vote_skips:
+            self.vote_skips[interaction.guild_id].clear()
+        await interaction.response.send_message("Song skipped by staff member.")
+
 
     @app_commands.command(name='queue', description='Displays the current music queue.')
     async def queue(self, interaction: discord.Interaction):
@@ -283,7 +321,7 @@ class MusicCog(commands.Cog):
                 title = title[:37]
 
             # Format the string to have the clickable title and duration
-            song_display = f"[{title}]({url}) duration: `{duration}`"
+            song_display = f"[{title.replace("[","").replace("]","")}]({url}) duration: `{duration}`"
 
             embed.add_field(name=f"", value=song_display, inline=False)
 
@@ -336,3 +374,4 @@ async def setup(bot):
     bot.tree.add_command(cog.stop, guild=guild)
     bot.tree.add_command(cog.join, guild=guild)
     bot.tree.add_command(cog.queue, guild=guild)
+    bot.tree.add_command(cog.forceskip, guild=guild)
