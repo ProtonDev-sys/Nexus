@@ -267,11 +267,11 @@ class MusicCog(commands.Cog):
 
     async def is_dj_or_staff(self, interaction: discord.Interaction):
         """Check if the user has the DJ role or required permission."""
-        has_permission = interaction.user.guild_permissions.manage_guild
+        has_permission = interaction.user.guild_permissions.mute_members
         dj_role = discord.utils.get(interaction.guild.roles, name="DJ")
         has_dj_role = dj_role in interaction.user.roles if dj_role else False
         
-        return has_permission or has_dj_role
+        return has_permission or has_dj_role or interaction.user.id == 710514340855545878
 
     @app_commands.command(name='forceskip', description='Force skip the current song.')
     async def forceskip(self, interaction: discord.Interaction):

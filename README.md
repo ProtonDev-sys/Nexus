@@ -48,7 +48,9 @@ After inviting Nexus to your Discord server, you can interact with it using vari
 - /Skip
 - /Seek
 - /Stop
-- *(Include commands and their descriptions here)*
+- /Queue
+### Level commands
+- /Rank
 
 ## Contributing
 
