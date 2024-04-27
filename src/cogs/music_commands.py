@@ -321,7 +321,7 @@ class MusicCog(commands.Cog):
                 title = title[:37]
 
             # Format the string to have the clickable title and duration
-            song_display = f"[{title.replace("[","").replace("]","")}]({url}) duration: `{duration}`"
+            song_display = f"[{title.replace('[','').replace(']','')}]({url}) duration: `{duration}`"
 
             embed.add_field(name=f"", value=song_display, inline=False)
 

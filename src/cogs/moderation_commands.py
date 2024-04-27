@@ -27,7 +27,7 @@ class ModerationCog(commands.Cog):
     async def unmute_expired_users(self):
         current_time = datetime.datetime.utcnow()
         for guild in self.bot.guilds:
-            temp_mutes = self.data_manager.get_guild_setting(guild.id, 'temp_mutes', '{}')
+            temp_mutes = self.data_manager.get_guild_setting(guild.id, 'temp_mutes', {})
             temp_mutes_dict = temp_mutes
 
             # Accumulate member IDs to be unmuted
