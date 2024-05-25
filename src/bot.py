@@ -18,7 +18,9 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 @bot.event
 async def on_ready():
     logger.info(f'Logged in as {bot.user.name}')
-    await bot.tree.sync()
+    await bot.tree.sync(guild=discord.Object(1243055680274042940))
+    #await bot.tree.sync()
+    
 
 async def load_cogs(bot):
     # Get the directory of the current script (bot.py)
