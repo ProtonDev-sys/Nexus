@@ -76,6 +76,13 @@ class MusicCog(commands.Cog):
         channel = ctx.author.voice.channel
         await channel.connect()
 
+    @app_commands.command(name='disconnect', description='Tells the bot to leave the voice channel')
+    async def disconnect(self, interaction: discord.Interaction):
+        ctx = await commands.Context.from_interaction(interaction)
+        vc = ctx.voice_client
+        if vc:
+            vc.disconnect()
+
     @app_commands.command(name='play', description='Plays a song from a URL or search query')
     @app_commands.describe(query='The URL or search query of the song to play')
     async def play(self, interaction: discord.Interaction, query: str):
@@ -282,11 +289,13 @@ class MusicCog(commands.Cog):
         if vc is None or not vc.is_playing():
             await interaction.response.send_message("No song is currently playing.")
             return
-
+        
+        await interaction.response.send_message(f"Song skipped by {interaction.user.name}.")
         vc.stop()
         if interaction.guild_id in self.vote_skips:
             self.vote_skips[interaction.guild_id].clear()
-        await interaction.response.send_message("Song skipped by staff member.")
+        return
+        
 
 
     @app_commands.command(name='queue', description='Displays the current music queue.')
@@ -317,8 +326,8 @@ class MusicCog(commands.Cog):
             duration = str(datetime.timedelta(seconds=song_info.get('duration', 0)))
 
             # Truncate title if it's too long
-            if len(title) > 40:
-                title = title[:37]
+            if len(title) > 35:
+                title = f"{title[:32]}..."
 
             # Format the string to have the clickable title and duration
             song_display = f"[{title.replace('[','').replace(']','')}]({url}) duration: `{duration}`"
@@ -373,5 +382,6 @@ async def setup(bot):
     bot.tree.add_command(cog.skip, guild=guild)
     bot.tree.add_command(cog.stop, guild=guild)
     bot.tree.add_command(cog.join, guild=guild)
+    bot.tree.add_command(cog.disconnect, guild=guild)
     bot.tree.add_command(cog.queue, guild=guild)
     bot.tree.add_command(cog.forceskip, guild=guild)

@@ -3,11 +3,13 @@ import discord
 from discord import app_commands
 from utils.guild_data_management import GuildDataManager
 from random import randint, choice
+import logging
 
 class EconomyCOG(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.data_manager = GuildDataManager()
+        self.logger = logging.getLogger(__name__)
 
     #@commands.Cog.listener()
     #async def on_message(self, message):
@@ -71,10 +73,51 @@ class EconomyCOG(commands.Cog):
         embed.set_footer(text="Powered by Nexus")
         embed.set_author(name=interaction.user.name,icon_url=str(interaction.user.avatar.url))
         await interaction.followup.send(embed=embed)
+    
+    @app_commands.command(name='deposit', description='Deposit money into your bank.')
+    @app_commands.describe(amount='Amount to depsoit.')
+    async def deposit(self, interaction: discord.Interaction, amount: int):
+        try:
+            if str(int(amount)) != str(amount):
+                embed = discord.Embed(
+                    title=f"Error",
+                    description=f"You must pass an integer value.",
+                    color=int('d92b26', 16),
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+            else:
+                guild_economy_data = self.data_manager.get_guild_setting(interaction.guild_id, 'economy_data', {})
+                user_id = str(interaction.user.id)
+                user_data = guild_economy_data.get(user_id, {'cash': 0, 'bank': 0})
+
+                current_cash = user_data['cash']
+                current_bank = user_data['bank']
+                if current_cash >= amount:
+                    current_bank += amount
+                    current_cash -= amount
+                    user_data.update({'cash': current_cash, 'bank': current_bank})
+                    guild_economy_data[user_id] = user_data
+                    self.data_manager.set_guild_setting(interaction.guild_id, 'economy_data', guild_economy_data)
+                else:
+                    embed = discord.Embed(
+                        title=f"Error",
+                        description=f"You don't have enough money to deposit.",
+                        color=int('d92b26', 16),
+                    )
+                    await interaction.response.send_message(embed=embed, ephemeral=True)
+        except Exception as e:
+            embed = discord.Embed(
+                title=f"Error",
+                description=f"You must pass an integer value.",
+                color=int('d92b26', 16),
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            self.logger.error(e)
 
 async def setup(bot):
     cog = EconomyCOG(bot)
     await bot.add_cog(cog)
-    guild = discord.Object(id=1243055680274042940)  
+    guild = discord.Object(id=1203047551813816380)  
     bot.tree.add_command(cog.balance, guild=guild)
     bot.tree.add_command(cog.work, guild=guild)
+    bot.tree.add_command(cog.deposit, guild=guild)

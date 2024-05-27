@@ -30,6 +30,9 @@ class XPCog(commands.Cog):
             self.last_xp_award[user_id] = now
 
     async def award_xp(self, guild_id, user_id, xp_gain, message_channel):
+        guild_level_enabled = self.data_manager.get_guild_setting(guild_id, 'level_enabled', True)
+        if not guild_level_enabled:
+            return
         guild_xp_data = self.data_manager.get_guild_setting(guild_id, 'xp_data', {})
         user_data = guild_xp_data.get(user_id, {'xp': 0, 'level': 0})
         
@@ -63,8 +66,32 @@ class XPCog(commands.Cog):
         self.data_manager.set_guild_setting(interaction.guild_id, 'level_up_channel', str(channel.id))
         await interaction.response.send_message(f"Level-up announcements will be sent to: {channel.mention}")
 
+    @app_commands.command(name='togglelevel', description='Toggles if levels are used on the server.')
+    async def togglelevel(self, interaction: discord.Interaction):
+        guild_level_enabled = self.data_manager.get_guild_setting(interaction.guild_id, 'level_enabled', True)
+        self.data_manager.set_guild_setting(interaction.guild_id, 'level_enabled', not guild_level_enabled)
+        enabled = guild_level_enabled and "off" or "on"
+        colour = guild_level_enabled and int('d92b26', 16) or int('27d858', 16)
+        embed = discord.Embed(
+            title="",
+            description=f"Levels have been toggled {enabled}",
+            color=colour
+        )
+        await interaction.response.send_message(embed=embed)
+        return
+
     @app_commands.command(name='rank', description='Displays your rank with a custom image.')
     async def rank(self, interaction: discord.Interaction):
+        guild_level_enabled = self.data_manager.get_guild_setting(interaction.guild_id, 'level_enabled', True)
+        if not guild_level_enabled:
+            embed = discord.Embed(
+                title="",
+                description="Levels are disabled on this server.",
+                color=int('d92b26', 16)
+            )
+            await interaction.response.send_message(embed=embed)
+            return
+        
         guild_xp_data = self.data_manager.get_guild_setting(interaction.guild_id, 'xp_data', {})
         user_id = str(interaction.user.id)
         user_data = guild_xp_data.get(user_id, {'xp': 0, 'level': 0})
@@ -155,3 +182,4 @@ async def setup(bot):
     guild = discord.Object(id=1203047551813816380)  
     bot.tree.add_command(cog.rank, guild=guild)
     bot.tree.add_command(cog.set_level_up_channel, guild=guild)
+    bot.tree.add_command(cog.togglelevel, guild=guild)
