@@ -8,6 +8,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 import aiohttp
 import io
 import os
+from utils.constants import RED,GREEN
 
 class XPCog(commands.Cog):
     def __init__(self, bot):
@@ -71,7 +72,7 @@ class XPCog(commands.Cog):
         guild_level_enabled = self.data_manager.get_guild_setting(interaction.guild_id, 'level_enabled', True)
         self.data_manager.set_guild_setting(interaction.guild_id, 'level_enabled', not guild_level_enabled)
         enabled = guild_level_enabled and "off" or "on"
-        colour = guild_level_enabled and int('d92b26', 16) or int('27d858', 16)
+        colour = guild_level_enabled and RED or GREEN
         embed = discord.Embed(
             title="",
             description=f"Levels have been toggled {enabled}",
@@ -87,7 +88,7 @@ class XPCog(commands.Cog):
             embed = discord.Embed(
                 title="",
                 description="Levels are disabled on this server.",
-                color=int('d92b26', 16)
+                color=RED
             )
             await interaction.response.send_message(embed=embed)
             return

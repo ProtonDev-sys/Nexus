@@ -17,13 +17,10 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    await bot.change_presence(activity=discord.Activity(type=3,name="you"))
-    commands_to_remove = list(bot.all_commands.keys())
-    for cmd in commands_to_remove:
-        bot.remove_command(cmd)
+    await bot.change_presence(activity=discord.Activity(type=1,name="you"))
     logger.info(f'Logged in as {bot.user.name}')
-    #await bot.tree.sync(guild=discord.Object(1243055680274042940))
-    await bot.tree.sync()
+    await bot.tree.sync(guild=discord.Object(1203047551813816380))
+    #await bot.tree.sync()
     
 
 async def load_cogs(bot):
