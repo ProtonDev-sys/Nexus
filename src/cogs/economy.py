@@ -160,7 +160,7 @@ class EconomyCOG(commands.Cog):
         embed.set_author(name=interaction.user.name,icon_url=str(interaction.user.avatar.url))
         await interaction.followup.send(embed=embed)
 
-    @app_commands.command(name='blackjack', description='Play blackjakc')
+    @app_commands.command(name='blackjack', description='Play blackjack')
     async def blackjack(self, interaction: discord.Interaction, bet: int):
         guild_economy_data = self.data_manager.get_guild_setting(interaction.guild_id, 'economy_data', {})
         user_id = str(interaction.user.id)

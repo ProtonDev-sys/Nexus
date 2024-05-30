@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import os
 import asyncio
 import logging
-
+from time import sleep
 # Load environment variables
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -19,8 +19,9 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     await bot.change_presence(activity=discord.Activity(type=1,name="you"))
     logger.info(f'Logged in as {bot.user.name}')
+    sleep(5)
     await bot.tree.sync(guild=discord.Object(1203047551813816380))
-    #await bot.tree.sync()
+    await bot.tree.sync()
     
 
 async def load_cogs(bot):
